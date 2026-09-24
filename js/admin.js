@@ -1,5 +1,5 @@
 /* ============================================================
-   管理端逻辑：编辑项目 / 节点 / 照片 / 地图点位，导出或发布
+   管理端逻辑：编辑项目 / 节点 / 照片，导出或发布
    ============================================================ */
 let DATA = null, CUR = 0;
 const $ = (s) => document.querySelector(s);
@@ -82,18 +82,12 @@ function renderEditor() {
   h += '<div class="row r2">' + f('项目联系人', 'f_contact', p.contact) + f('联系电话', 'f_phone', p.phone) + '</div>';
   h += '</div></div>';
 
-  /* 地图点位 */
-  h += '<div class="panel" style="margin-top:14px;"><h3>② 地图点位（在地图上点击即可定位本项目）</h3><div class="bd">';
-  h += '<div class="map-pick" id="mapPick" style="background-image:url(images/land-use-map.png)"></div>';
-  h += '<p class="tip" style="margin-top:8px;">当前点位：X <b id="posX">' + p.pos.x + '</b>%　Y <b id="posY">' + p.pos.y + '</b>%　（灰点为其他项目，蓝点为当前项目）</p>';
-  h += '</div></div>';
-
   /* 节点 */
-  h += '<div class="panel" style="margin-top:14px;"><h3>③ 手续节点（共 ' + p.nodes.length + ' 项，已办结 ' + p.nodes.filter((n) => n.done).length + ' 项）</h3><div class="bd" id="nodes"></div>';
+  h += '<div class="panel" style="margin-top:14px;"><h3>② 手续节点（共 ' + p.nodes.length + ' 项，已办结 ' + p.nodes.filter((n) => n.done).length + ' 项）</h3><div class="bd" id="nodes"></div>';
   h += '<div class="bd flex"><button class="mini" onclick="cbAddNode()">＋ 新增节点</button><span class="tip">节点顺序即大屏时间轴显示顺序</span></div></div>';
 
   /* 照片 */
-  h += '<div class="panel" style="margin-top:14px;"><h3>④ 项目现场照片（大屏循环展示，建议 2—3 张）</h3><div class="bd">';
+  h += '<div class="panel" style="margin-top:14px;"><h3>③ 项目现场照片（大屏循环展示，建议 2—3 张）</h3><div class="bd">';
   h += '<div class="photos" id="photos"></div>';
   h += '<div class="flex" style="margin-top:10px;"><input type="file" id="phFile" accept="image/*" multiple style="display:none;">';
   h += '<button class="mini" onclick="document.getElementById(\'phFile\').click()">＋ 上传照片</button>';
@@ -101,7 +95,7 @@ function renderEditor() {
   h += '</div></div>';
 
   /* 元信息 */
-  h += '<div class="panel" style="margin-top:14px;"><h3>⑤ 平台标题与数据信息</h3><div class="bd">';
+  h += '<div class="panel" style="margin-top:14px;"><h3>④ 平台标题与数据信息</h3><div class="bd">';
   h += '<div class="row r2">' + f('园区名称', 'm_park', DATA.meta.parkName) + f('平台标题', 'm_title', DATA.meta.title) + '</div>';
   h += '<div class="row">' + f('副标题', 'm_sub', DATA.meta.subtitle) + '</div>';
   h += '<div class="row r2">' + f('数据更新时间', 'm_update', DATA.meta.updateTime) + f('数据来源说明', 'm_source', DATA.meta.dataSource) + '</div>';
@@ -122,7 +116,7 @@ function renderEditor() {
   const mb = (id, key) => { const n = $('#' + id); if (n) n.oninput = () => { DATA.meta[key] = n.value; }; };
   mb('m_park', 'parkName'); mb('m_title', 'title'); mb('m_sub', 'subtitle'); mb('m_update', 'updateTime'); mb('m_source', 'dataSource');
 
-  renderNodes(); renderPhotos(); bindMapPick();
+  renderNodes(); renderPhotos();
 }
 
 /* ---------------- 节点 ---------------- */
@@ -162,7 +156,7 @@ function renderNodes() {
   });
   // 更新标题计数
   const t = box.parentElement.querySelector('h3');
-  if (t) t.textContent = '③ 手续节点（共 ' + p.nodes.length + ' 项，已办结 ' + p.nodes.filter((n) => n.done).length + ' 项）';
+  if (t) t.textContent = '② 手续节点（共 ' + p.nodes.length + ' 项，已办结 ' + p.nodes.filter((n) => n.done).length + ' 项）';
   const sel = box.querySelector('select');
   if (sel && !p.nodes.length) box.innerHTML = '<p class="tip">暂无节点，点击下方「新增节点」添加。</p>';
 }
@@ -205,40 +199,6 @@ function handleFiles(files) {
     fr.readAsDataURL(file);
   });
   toast('照片已加入，记得保存');
-}
-
-/* ---------------- 地图点位 ---------------- */
-function bindMapPick() {
-  const box = $('#mapPick'); if (!box) return;
-  box.innerHTML = '';
-  const p = DATA.projects[CUR];
-  /* 背景图按 contain 显示，需按图片实际比例反算百分比 */
-  const img = new Image();
-  img.onload = () => {
-    const ratio = img.width / img.height;
-    const bw = box.clientWidth, bh = box.clientHeight;
-    const w = Math.min(bw, bh * ratio), h = w / ratio;
-    const ox = (bw - w) / 2, oy = (bh - h) / 2;
-    box.dataset.o = [ox, oy, w, h].join(',');
-    DATA.projects.forEach((q, i) => {
-      const d = document.createElement('div');
-      d.className = 'mk' + (i === CUR ? '' : ' other');
-      d.style.left = (ox + q.pos.x / 100 * w) + 'px';
-      d.style.top = (oy + q.pos.y / 100 * h) + 'px';
-      if (i !== CUR) d.title = q.short;
-      box.appendChild(d);
-    });
-    box.onclick = (e) => {
-      const r = box.getBoundingClientRect();
-      const [a, b, ww, hh] = box.dataset.o.split(',').map(Number);
-      let x = ((e.clientX - r.left - a) / ww) * 100, y = ((e.clientY - r.top - b) / hh) * 100;
-      x = Math.max(0, Math.min(100, x)); y = Math.max(0, Math.min(100, y));
-      p.pos = { x: Math.round(x * 10) / 10, y: Math.round(y * 10) / 10 };
-      $('#posX').textContent = p.pos.x; $('#posY').textContent = p.pos.y;
-      bindMapPick();
-    };
-  };
-  img.src = 'images/land-use-map.png';
 }
 
 /* ---------------- 保存 / 导出 / 导入 ---------------- */

@@ -171,19 +171,6 @@
     if (!iInner.children.length) iInner.appendChild(el('div', 'empty', '暂无需要协调解决的问题'));
     iw.appendChild(iInner);
 
-    /* 地图标记 */
-    const mw = $('#mapMarkers'); mw.innerHTML = '';
-    d.projects.forEach((p, i) => {
-      const pos = p.pos || { x: 50, y: 50 };
-      const COLOR = { a: '#18f5b0', b: '#38e6ff', c: '#ffc42e', d: '#9b7bff' }[p._status.k];
-      const m = el('div', 'map-mk' + (pos.x > 58 ? ' flip' : ''));
-      m.dataset.i = i;
-      m.style.left = pos.x + '%'; m.style.top = pos.y + '%'; m.style.color = COLOR;
-      m.innerHTML = '<div class="mk-dot"></div><div class="mk-tag"><b>' + String(p.seq).padStart(2, '0') + '</b>' + esc(p.short || p.name) + '</div>';
-      m.onclick = () => setActive(i, true);
-      mw.appendChild(m);
-    });
-
     /* 跑马灯 */
     const mi = $('#marqueeInner'); mi.innerHTML = '';
     const seqHtml = d.projects.map((p) => '<span><em>' + String(p.seq).padStart(2, '0') + '</em>' + esc(p.name) + '　<b>' + p._status.t + '</b></span>').join('');
@@ -203,7 +190,6 @@
     const p = DATA.projects[i];
     document.querySelectorAll('.card').forEach((c) => c.classList.toggle('on', +c.dataset.i === i));
     document.querySelectorAll('.li').forEach((c) => c.classList.toggle('on', +c.dataset.i === i));
-    document.querySelectorAll('.map-mk').forEach((c) => c.classList.toggle('on', +c.dataset.i === i));
     // 地图上方信息条
     const COLOR = { a: '#18f5b0', b: '#38e6ff', c: '#ffc42e', d: '#9b7bff' }[p._status.k];
     $('#nowBar').innerHTML =
