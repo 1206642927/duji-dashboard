@@ -93,12 +93,12 @@
       { v: S.st.c + S.st.d, t: '前期手续', c: '#ffc42e', max: d.projects.length }
     ];
     ringData.forEach((r) => {
-      const pct = r.max ? r.v / r.max : 0, R = 42, C = 2 * Math.PI * R;
+      const pct = r.max ? r.v / r.max : 0, R = 30, C = 2 * Math.PI * R;
       const box = el('div', 'ring');
       box.innerHTML =
-        '<svg width="104" height="104">' +
-        '<circle cx="52" cy="52" r="' + R + '" stroke="rgba(110,170,220,.18)" stroke-width="7" fill="none"/>' +
-        '<circle cx="52" cy="52" r="' + R + '" stroke="' + r.c + '" stroke-width="7" fill="none" stroke-linecap="round"' +
+        '<svg width="76" height="76">' +
+        '<circle cx="38" cy="38" r="' + R + '" stroke="rgba(110,170,220,.18)" stroke-width="6" fill="none"/>' +
+        '<circle cx="38" cy="38" r="' + R + '" stroke="' + r.c + '" stroke-width="6" fill="none" stroke-linecap="round"' +
         ' stroke-dasharray="' + C.toFixed(1) + '" stroke-dashoffset="' + C.toFixed(1) + '" style="transition:stroke-dashoffset 1.4s cubic-bezier(.2,.8,.3,1);filter:drop-shadow(0 0 5px ' + r.c + ')"/>' +
         '</svg><div class="val"><b>' + r.v + '<small>个</small></b></div><div class="cap">' + r.t + '</div>';
       rings.appendChild(box);
@@ -107,7 +107,7 @@
 
     /* 手续办理进度 */
     const bars = $('#bars'); bars.innerHTML = '';
-    const ORDER = ['投资协议签订', '工商注册', '立项备案', '能评手续', '环评手续', '施工许可证', '工程开工', '纳统', '入规'];
+    const ORDER = ['投资协议签订', '工商注册', '立项备案', '能评手续', '环评手续', '施工许可证', '工程开工', '纳统'];
     const rows = [];
     ORDER.forEach((nm) => {
       let hit = null;
@@ -130,7 +130,7 @@
     d.projects.forEach((p, i) => {
       const li = el('div', 'li');
       li.dataset.i = i;
-      li.innerHTML = '<span class="no">' + String(p.seq).padStart(2, '0') + '</span><span class="nm">' + esc(p.name) + '</span>' +
+      li.innerHTML = '<span class="no">' + String(p.seq).padStart(2, '0') + '</span><span class="nm" title="' + esc(p.name) + '">' + esc(p.name) + '</span>' +
         '<span class="st ' + p._status.k + '">' + p._status.t + '</span>';
       li.onclick = () => setActive(i, true);
       list.appendChild(li);
@@ -142,7 +142,7 @@
       const c = el('div', 'card'); c.dataset.i = i;
       const n = p._doing;
       const ph = (p.images && p.images.length)
-        ? '<div class="card-photos">' + p.images.slice(0, 3).map((s) => '<img src="' + esc(s) + '" alt="现场照片">').join('') + '</div>'
+        ? '<div class="card-photos">' + p.images.slice(0, 2).map((s) => '<img src="' + esc(s) + '" alt="现场照片">').join('') + '</div>'
         : '<div class="card-photos"><div class="ph">项目现场照片 · 待上传</div></div>';
       c.innerHTML =
         '<div class="card-top"><span class="card-seq">' + String(p.seq).padStart(2, '0') + '</span>' +
@@ -151,10 +151,9 @@
         '<span>投资方</span><b>' + esc(p.investor) + '</b>' +
         '<span>在淮公司</span><b>' + esc(p.company) + '</b>' +
         '<span>联系人</span><b>' + esc(p.contact) + '　' + esc(p.phone) + '</b>' +
-        '<span>手续进度</span><b>' + p._doneCount + ' / ' + p.nodes.length + ' 项已办结　·　' + p._status.t + '</b>' +
         '</div>' +
         (n ? '<div class="node-now"><strong>在办节点 · ' + esc(n.name) + '</strong>　' + esc(n.plan && n.plan !== '—' ? '计划 ' + n.plan : '') + '<br>' +
-          esc(n.note || '') + (n.next ? '<br><span style="color:#8fd8ff">下周计划：' + esc(n.next) + '</span>' : '') + '</div>' : '') +
+          esc(n.note || '') + (n.next ? '<br><span style="color:#9fdcff">下周计划：' + esc(n.next) + '</span>' : '') + '</div>' : '') +
         ph;
       cw.appendChild(c);
     });
@@ -190,6 +189,7 @@
     const p = DATA.projects[i];
     document.querySelectorAll('.card').forEach((c) => c.classList.toggle('on', +c.dataset.i === i));
     document.querySelectorAll('.li').forEach((c) => c.classList.toggle('on', +c.dataset.i === i));
+    scrollListTo(i);
     // 地图上方信息条
     const COLOR = { a: '#18f5b0', b: '#38e6ff', c: '#ffc42e', d: '#9b7bff' }[p._status.k];
     $('#nowBar').innerHTML =
@@ -201,6 +201,15 @@
       '<span class="nb-st" style="color:' + COLOR + '">' + p._status.t + '</span>';
     renderTimeline(p);
     if (manual) { clearInterval(timer); timer = setInterval(() => setActive((ACTIVE + 1) % DATA.projects.length, false), CFG.cycleMs); }
+  }
+
+  /* 专班项目名录：固定 8 行，高亮项超出可视范围时整列上下滚动 */
+  const LIST_ROW_H = 37, LIST_VISIBLE = 8;
+  function scrollListTo(i) {
+    const inner = document.getElementById('listInner');
+    if (!inner) return;
+    const off = i >= LIST_VISIBLE ? (i - LIST_VISIBLE + 1) * LIST_ROW_H : 0;
+    inner.style.transform = 'translateY(' + (-off) + 'px)';
   }
 
   function renderTimeline(p) {

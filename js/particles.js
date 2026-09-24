@@ -1,75 +1,131 @@
-/* 粒子星链背景：漂浮粒子 + 邻近连线 + 缓慢上浮光点 */
+/* 精细粒子层（性能优化版）
+   1) 空间网格加速近邻连线，避免 O(n²) 全量比对
+   2) 预渲染光点贴图，避免每帧创建 radialGradient
+   3) 背景层固定 30fps，稳定流畅、CPU 占用低
+*/
 (function () {
   const cv = document.getElementById('particles');
   if (!cv) return;
-  const ctx = cv.getContext('2d');
+  const ctx = cv.getContext('2d', { alpha: true });
   const W = cv.width = 1920, H = cv.height = 1080;
-  const COLORS = ['56,230,255', '43,140,255', '24,245,176'];
-  let dots = [], sparks = [], raf = null, t = 0;
+  const LINK = 172, LINK2 = LINK * LINK;
+  const FPS = 30, FRAME = 1000 / FPS;
+  const COLORS = ['150,230,255', '110,190,255', '120,255,220', '190,225,255'];
+
+  /* ---- 预渲染光点贴图 ---- */
+  function sprite(rgb, size) {
+    const c = document.createElement('canvas');
+    c.width = c.height = size;
+    const g = c.getContext('2d');
+    const grd = g.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+    grd.addColorStop(0, 'rgba(' + rgb + ',1)');
+    grd.addColorStop(0.35, 'rgba(' + rgb + ',0.45)');
+    grd.addColorStop(1, 'rgba(' + rgb + ',0)');
+    g.fillStyle = grd;
+    g.beginPath(); g.arc(size / 2, size / 2, size / 2, 0, 6.2832); g.fill();
+    return c;
+  }
+  const SPR = {}, DUST = {};
+  for (const c of COLORS) { SPR[c] = sprite(c, 16); DUST[c] = sprite(c, 64); }
+
+  let dots = [], dust = [], t = 0, last = 0;
+  const GX = Math.ceil(W / LINK), GY = Math.ceil(H / LINK);
+  const buckets = new Array(GX * GY);
 
   function init() {
     dots = [];
-    const n = Math.round(W * H / 26000); // ≈ 80 个
-    for (let i = 0; i < n; i++) {
+    for (let i = 0; i < 120; i++) {
       dots.push({
         x: Math.random() * W, y: Math.random() * H,
-        vx: (Math.random() - 0.5) * 0.28, vy: (Math.random() - 0.5) * 0.28,
-        r: Math.random() * 1.7 + 0.6,
+        vx: (Math.random() - 0.5) * 0.24, vy: (Math.random() - 0.5) * 0.24,
+        r: Math.random() * 1.1 + 0.5,
         c: COLORS[(Math.random() * COLORS.length) | 0],
-        a: Math.random() * 0.5 + 0.35
+        a: Math.random() * 0.3 + 0.5,
+        ph: Math.random() * 6.28
       });
     }
-    sparks = [];
-    for (let i = 0; i < 26; i++) {
-      sparks.push({ x: Math.random() * W, y: Math.random() * H, v: Math.random() * 0.5 + 0.25, r: Math.random() * 1.4 + 0.5 });
+    dust = [];
+    for (let i = 0; i < 22; i++) {
+      dust.push({
+        x: Math.random() * W, y: Math.random() * H,
+        v: Math.random() * 0.3 + 0.12,
+        r: Math.random() * 0.9 + 0.7,
+        c: COLORS[(Math.random() * COLORS.length) | 0],
+        a: Math.random() * 0.3 + 0.22
+      });
     }
   }
 
-  function step() {
+  function step(now) {
+    requestAnimationFrame(step);
+    if (now - last < FRAME) return;      // 固定 30fps
+    last = now;
     t++;
+
     ctx.clearRect(0, 0, W, H);
 
-    // 连线
-    for (let i = 0; i < dots.length; i++) {
-      const a = dots[i];
-      for (let j = i + 1; j < dots.length; j++) {
-        const b = dots[j];
-        const dx = a.x - b.x, dy = a.y - b.y;
-        const d2 = dx * dx + dy * dy;
-        if (d2 < 26000) {
-          const al = (1 - d2 / 26000) * 0.28;
-          ctx.strokeStyle = 'rgba(' + a.c + ',' + al.toFixed(3) + ')';
-          ctx.lineWidth = 0.7;
-          ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+    /* 分桶 */
+    buckets.fill(null);
+    for (const d of dots) {
+      const gx = (d.x / LINK) | 0, gy = (d.y / LINK) | 0;
+      const k = gy * GX + gx;
+      (buckets[k] || (buckets[k] = [])).push(d);
+    }
+
+    /* 连线：只查同格与右/下相邻格 */
+    ctx.lineWidth = 0.6;
+    const NB = [[0, 0], [1, 0], [-1, 1], [0, 1], [1, 1]];
+    for (let gy = 0; gy < GY; gy++) {
+      for (let gx = 0; gx < GX; gx++) {
+        const A = buckets[gy * GX + gx];
+        if (!A) continue;
+        for (let n = 0; n < NB.length; n++) {
+          const nx = gx + NB[n][0], ny = gy + NB[n][1];
+          if (nx < 0 || ny < 0 || nx >= GX || ny >= GY) continue;
+          const B = buckets[ny * GX + nx];
+          if (!B) continue;
+          const same = (n === 0);
+          for (let i = 0; i < A.length; i++) {
+            const a = A[i];
+            for (let j = same ? i + 1 : 0; j < B.length; j++) {
+              const b = B[j];
+              const dx = a.x - b.x, dy = a.y - b.y;
+              const d2 = dx * dx + dy * dy;
+              if (d2 < LINK2) {
+                const k = 1 - d2 / LINK2;
+                ctx.strokeStyle = 'rgba(' + a.c + ',' + (k * k * 0.26).toFixed(3) + ')';
+                ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+              }
+            }
+          }
         }
       }
     }
 
-    // 粒子
+    /* 微粒 */
     for (const d of dots) {
       d.x += d.vx; d.y += d.vy;
-      if (d.x < -10) d.x = W + 10; if (d.x > W + 10) d.x = -10;
-      if (d.y < -10) d.y = H + 10; if (d.y > H + 10) d.y = -10;
-      const tw = 0.72 + 0.28 * Math.sin((t + d.x) * 0.03);
-      ctx.fillStyle = 'rgba(' + d.c + ',' + (d.a * tw).toFixed(3) + ')';
-      ctx.beginPath(); ctx.arc(d.x, d.y, d.r, 0, 6.2832); ctx.fill();
+      if (d.x < -8) d.x = W + 8; else if (d.x > W + 8) d.x = -8;
+      if (d.y < -8) d.y = H + 8; else if (d.y > H + 8) d.y = -8;
+      const tw = 0.72 + 0.28 * Math.sin(t * 0.045 + d.ph);
+      const s = d.r * 8;   // 贴图直径（核 + 光晕）
+      ctx.globalAlpha = d.a * tw;
+      ctx.drawImage(SPR[d.c], d.x - s / 2, d.y - s / 2, s, s);
     }
+    ctx.globalAlpha = 1;
 
-    // 上浮光点
-    for (const s of sparks) {
+    /* 柔光浮尘 */
+    for (const s of dust) {
       s.y -= s.v;
-      if (s.y < -10) { s.y = H + 10; s.x = Math.random() * W; }
-      const g = ctx.createRadialGradient(s.x, s.y, 0, s.x, s.y, s.r * 7);
-      g.addColorStop(0, 'rgba(120,235,255,.55)');
-      g.addColorStop(1, 'rgba(120,235,255,0)');
-      ctx.fillStyle = g;
-      ctx.beginPath(); ctx.arc(s.x, s.y, s.r * 7, 0, 6.2832); ctx.fill();
+      s.x += Math.sin((t + s.y) * 0.006) * 0.2;
+      if (s.y < -20) { s.y = H + 20; s.x = Math.random() * W; }
+      const sz = s.r * 46;
+      ctx.globalAlpha = s.a;
+      ctx.drawImage(DUST[s.c], s.x - sz / 2, s.y - sz / 2, sz, sz);
     }
-
-    raf = requestAnimationFrame(step);
+    ctx.globalAlpha = 1;
   }
 
   init();
-  step();
-  window.addEventListener('resize', () => { /* 画布尺寸固定 1920×1080，由 #stage 缩放 */ });
+  requestAnimationFrame(step);
 })();
