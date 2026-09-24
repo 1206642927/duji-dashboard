@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>管理端 · 重点项目专班智慧化管理平台</title>
+<style>
+:root{--cyan:#38e6ff;--blue:#2b8cff;--green:#18f5b0;--amber:#ffc42e;--red:#ff5c7a;--txt:#d6ecff;--dim:#8fb6d8;--line:rgba(74,190,255,.25);}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:"微软雅黑","Microsoft YaHei",sans-serif;background:#050c18;color:var(--txt);font-size:13.5px;}
+a{color:var(--cyan);}
+.hd{display:flex;align-items:center;gap:14px;padding:12px 20px;background:linear-gradient(90deg,rgba(20,80,150,.55),rgba(6,22,44,.4));border-bottom:1px solid var(--line);position:sticky;top:0;z-index:20;}
+.hd h1{font-size:18px;letter-spacing:2px;font-weight:600;}
+.hd .sp{flex:1;}
+button{font-family:inherit;font-size:13px;padding:6px 14px;border:1px solid var(--line);background:rgba(20,60,110,.6);color:#d8eeff;cursor:pointer;border-radius:2px;letter-spacing:1px;}
+button:hover{background:rgba(40,110,190,.7);border-color:var(--cyan);}
+button.primary{background:linear-gradient(180deg,#1f7fd6,#14528f);border-color:#48b6ff;color:#fff;}
+button.danger{border-color:rgba(255,92,122,.5);color:#ff9db1;}
+button.mini{padding:2px 8px;font-size:12px;}
+.wrap{display:grid;grid-template-columns:300px 1fr;gap:16px;padding:16px 20px 60px;}
+.panel{background:linear-gradient(180deg,rgba(13,46,88,.5),rgba(6,20,42,.35));border:1px solid var(--line);}
+.panel h3{font-size:14px;padding:9px 12px;background:linear-gradient(90deg,rgba(43,140,255,.28),transparent);border-bottom:1px solid rgba(74,190,255,.18);letter-spacing:2px;font-weight:600;}
+.panel .bd{padding:12px;}
+.plist{max-height:calc(100vh - 200px);overflow:auto;}
+.pitem{display:flex;align-items:center;gap:8px;padding:7px 10px;border-bottom:1px solid rgba(74,190,255,.1);cursor:pointer;}
+.pitem:hover{background:rgba(43,140,255,.14);}
+.pitem.on{background:linear-gradient(90deg,rgba(56,230,255,.22),transparent);box-shadow:inset 2px 0 0 var(--cyan);}
+.pitem .no{font-family:Bahnschrift,sans-serif;color:#6fb0dd;width:20px;}
+.pitem .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.pitem .dot{width:8px;height:8px;border-radius:50%;background:var(--green);}
+fieldset{border:1px solid rgba(74,190,255,.2);padding:12px;margin-bottom:14px;}
+legend{font-size:13px;color:#8ff4ff;padding:0 8px;letter-spacing:2px;}
+label{display:block;font-size:12px;color:var(--dim);margin-bottom:4px;letter-spacing:.5px;}
+input,select,textarea{width:100%;font-family:inherit;font-size:13px;color:#e6f4ff;background:rgba(8,24,46,.85);border:1px solid rgba(74,190,255,.28);padding:6px 9px;border-radius:2px;}
+input:focus,textarea:focus,select:focus{outline:none;border-color:var(--cyan);box-shadow:0 0 8px rgba(56,230,255,.35);}
+textarea{resize:vertical;line-height:1.55;}
+.row{display:grid;gap:12px;margin-bottom:12px;}
+.r2{grid-template-columns:1fr 1fr;}
+.r3{grid-template-columns:1fr 1fr 1fr;}
+.r4{grid-template-columns:repeat(4,1fr);}
+.node{border:1px solid rgba(74,190,255,.18);padding:10px;margin-bottom:10px;background:rgba(9,28,52,.5);}
+.node .nh{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
+.node .nh b{font-size:13.5px;color:#cfeaff;}
+.node .nh .sp{flex:1;}
+.chk{display:flex;align-items:center;gap:6px;font-size:12.5px;color:#bcdcf5;}
+.chk input{width:auto;}
+.map-pick{position:relative;width:100%;height:420px;background:#04101f center/contain no-repeat;border:1px solid var(--line);cursor:crosshair;overflow:hidden;}
+.map-pick .mk{position:absolute;width:16px;height:16px;margin:-8px 0 0 -8px;border-radius:50%;background:rgba(56,230,255,.85);border:2px solid #fff;box-shadow:0 0 12px #38e6ff;}
+.map-pick .mk.other{width:9px;height:9px;margin:-4.5px 0 0 -4.5px;background:rgba(160,200,240,.6);border:1px solid #8fb6d8;box-shadow:none;}
+.photos{display:flex;gap:8px;flex-wrap:wrap;}
+.photo{position:relative;width:150px;height:100px;border:1px solid var(--line);overflow:hidden;}
+.photo img{width:100%;height:100%;object-fit:cover;}
+.photo button{position:absolute;right:2px;top:2px;padding:0 6px;font-size:12px;background:rgba(0,0,0,.6);border-color:rgba(255,92,122,.6);color:#ff9db1;}
+.tip{font-size:12px;color:#7fa6c8;line-height:1.7;}
+.toast{position:fixed;left:50%;top:70px;transform:translateX(-50%);background:rgba(8,40,76,.95);border:1px solid var(--cyan);
+  padding:10px 22px;font-size:13.5px;color:#e8f8ff;box-shadow:0 0 24px rgba(56,230,255,.35);z-index:99;display:none;}
+.lock{position:fixed;inset:0;background:#050c18;display:flex;align-items:center;justify-content:center;z-index:200;}
+.lock .box{width:340px;padding:26px;border:1px solid var(--line);background:linear-gradient(180deg,rgba(13,46,88,.7),rgba(6,20,42,.6));text-align:center;}
+.lock h2{font-size:17px;letter-spacing:3px;margin-bottom:18px;color:#bfe4ff;}
+.flex{display:flex;align-items:center;gap:10px;}
+hr{border:0;border-top:1px solid rgba(74,190,255,.15);margin:14px 0;}
+</style>
+</head>
+<body>
+
+<div class="lock" id="lock">
+  <div class="box">
+    <h2>管理端 · 口令验证</h2>
+    <input type="password" id="pwd" placeholder="请输入操作口令" style="margin-bottom:12px;">
+    <button class="primary" style="width:100%;" onclick="cbUnlock()">进入管理端</button>
+    <p class="tip" style="margin-top:12px;">默认口令 <b>duji2026</b>，可在进入后修改。<br>提示：本口令仅用于防止误操作。</p>
+  </div>
+</div>
+
+<div class="hd">
+  <h1>重点项目专班智慧化管理平台 · 管理端</h1>
+  <div class="sp"></div>
+  <button onclick="cbPreview()">预览大屏</button>
+  <button onclick="cbExport('json')">导出 data.json</button>
+  <button onclick="cbExport('js')">导出 data.js</button>
+  <button onclick="cbImport()">导入数据</button>
+  <button class="primary" onclick="cbSaveLocal()">保存到本机</button>
+  <button onclick="cbPublishPanel()">发布到代码托管平台</button>
+</div>
+
+<div class="wrap">
+  <div class="panel">
+    <h3>项目列表</h3>
+    <div class="plist" id="plist"></div>
+    <div class="bd flex">
+      <button class="mini" onclick="cbAddProject()">＋ 新增项目</button>
+      <button class="mini" onclick="cbMove(-1)">上移</button>
+      <button class="mini" onclick="cbMove(1)">下移</button>
+      <button class="mini danger" onclick="cbDelProject()">删除</button>
+    </div>
+  </div>
+
+  <div id="editor"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="js/data.js"></script>
+<script src="js/admin.js"></script>
+</body>
+</html>
